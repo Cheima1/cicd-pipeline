@@ -11,37 +11,45 @@ pipeline {
     stages {
         stage('Installation des dépendances') {
             steps {
-                sh 'npm ci'
-                sh 'npx prisma generate'
+                dir('cicd-tasklist-backend') {
+                    sh 'npm ci'
+                    sh 'npx prisma generate'
+                }
             }
         }
 
         stage('Tests unitaires') {
             steps {
-                sh 'npx prisma generate --schema=prisma/schema-test.prisma'
-                sh 'npm run test:coverage'
+                dir('cicd-tasklist-backend') {
+                    sh 'npx prisma generate --schema=prisma/schema-test.prisma'
+                    sh 'npm run test:coverage'
+                }
             }
             post {
                 always {
-                    junit 'reports/junit.xml'
+                    junit 'cicd-tasklist-backend/reports/junit.xml'
                 }
             }
         }
 
         stage('Tests End-to-End') {
             steps {
-                sh 'npm run test:e2e:coverage'
+                dir('cicd-tasklist-backend') {
+                    sh 'npm run test:e2e:coverage'
+                }
             }
             post {
                 always {
-                    junit 'reports/junit.xml'
+                    junit 'cicd-tasklist-backend/reports/junit.xml'
                 }
             }
         }
 
         stage('Analyse SonarQube') {
             steps {
-                sh "sonar-scanner -Dsonar.host.url=${SONAR_HOST_URL} -Dsonar.token=${SONAR_TOKEN}"
+                dir('cicd-tasklist-backend') {
+                    sh "sonar-scanner -Dsonar.host.url=${SONAR_HOST_URL} -Dsonar.token=${SONAR_TOKEN}"
+                }
             }
         }
 
@@ -53,7 +61,9 @@ pipeline {
 
         stage('Build Docker') {
             steps {
-                sh "docker build --tag ${DOCKER_IMAGE}:${BUILD_NUMBER} --tag ${DOCKER_IMAGE}:latest ."
+                dir('cicd-tasklist-backend') {
+                    sh "docker build --tag ${DOCKER_IMAGE}:${BUILD_NUMBER} --tag ${DOCKER_IMAGE}:latest ."
+                }
             }
         }
 
@@ -84,7 +94,9 @@ pipeline {
         stage('Push DockerHub') {
             steps {
                 sh "echo ${DOCKERHUB_CREDENTIALS_PSW} | docker login -u ${DOCKERHUB_CREDENTIALS_USR} --password-stdin"
-                sh "docker buildx build --platform linux/amd64 --tag ${DOCKER_IMAGE}:${BUILD_NUMBER} --tag ${DOCKER_IMAGE}:latest --sbom=true --provenance=true --push ."
+                dir('cicd-tasklist-backend') {
+                    sh "docker buildx build --platform linux/amd64 --tag ${DOCKER_IMAGE}:${BUILD_NUMBER} --tag ${DOCKER_IMAGE}:latest --sbom=true --provenance=true --push ."
+                }
             }
         }
     }
@@ -92,7 +104,7 @@ pipeline {
     post {
         always {
             sh 'docker logout'
-            cleanWs()
+            deleteDir()
         }
     }
 }
